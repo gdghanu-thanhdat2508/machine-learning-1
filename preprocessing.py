@@ -3,19 +3,22 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 
-
-#load the dataset
+# 1. Load the dataset
 df = pd.read_csv('startup_success_dataset.csv')
 
-#cleaning the dataset
+# 2. Cleaning the dataset
 df.columns = df.columns.str.strip()
 
-#Target Encoding (y)
-# Convert 'outcome' into numbers 
+# 3. Target Encoding (y)
+# GỘP IPO VÀ ACQUISITION THÀNH 'Success' TRƯỚC KHI ENCODE
+df['outcome'] = df['outcome'].replace({'IPO': 'Success', 'Acquisition': 'Success'})
+
+# Convert 'outcome' into numbers (Lúc này chỉ còn 'Failure' và 'Success')
 label_encoder = LabelEncoder()
 df['outcome'] = label_encoder.fit_transform(df['outcome'])
 
 # Store the mapping for later reference
+# Kết quả in ra sẽ là: {'Failure': 0, 'Success': 1}
 mapping = dict(zip(label_encoder.classes_, label_encoder.transform(label_encoder.classes_)))
 print(f"Outcome Mapping: {mapping}")
 
@@ -25,8 +28,6 @@ X = df.drop('outcome', axis=1)
 y = df['outcome']
 
 # 5. Categorical Encoding (One-Hot Encoding)
-# Using get_dummies for 'investor_type', 'sector', and 'founder_background'
-# We use drop_first=True to avoid Multicollinearity (important for Logistic Regression!)
 X = pd.get_dummies(X, columns=['investor_type', 'sector', 'founder_background'], drop_first=True, dtype=int)
 
 # 6. Train/Test Split
@@ -38,8 +39,6 @@ X_train = X_train.copy()
 X_test = X_test.copy()
 
 # 7. Feature Scaling
-# Since variables like 'revenue_million' are much larger than 'funding_rounds',
-# we must scale them so the model treats them fairly.
 scaler = StandardScaler()
 
 # Identify numerical columns to scale
