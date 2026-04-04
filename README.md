@@ -12,6 +12,8 @@ The model expects a dataset (`startup_success_dataset.csv`) with the following c
 - **Categorical:** `investor_type`, `sector`, `founder_background`.
 - **Target:** `outcome` (Automatically mapped to a binary `is_success` target).
 
+- [Link Dataset](https://www.kaggle.com/datasets/dhrubangtalukdar/startup-funding-and-outcome-dataset?resource=download&fbclid=IwY2xjawQ9vTRleHRuA2FlbQIxMABicmlkETFMT0V2Z0tYUUpWMVI1azU3c3J0YwZhcHBfaWQQMjIyMDM5MTc4ODIwMDg5MgABHmg3R-FNzr3OYBMcolERkpBaHIwQilrkdYhUpiW_dYdZXch7j6TE2Y0-yfNl_aem_Tiq7tg7y3vmFraUSOi_HtA)
+
 ## 🛠️ Technical Highlights (Under the Hood)
 
 This system is built with Enterprise-level Machine Learning standards:
