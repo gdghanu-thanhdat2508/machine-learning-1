@@ -34,7 +34,7 @@ Ensure you have Python 3.8+ installed on your system.
 python -m venv env
 ```
 
-````bash
+```bash
 source env/bin/activate
 ```
 
