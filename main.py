@@ -18,7 +18,8 @@ def main():
     # =========================================================
     # STEP 2: LABEL TRANSFORMATION (TARGET COLUMN)
     # =========================================================
-    success_states = ['IPO', 'Acquired', 'Success'] 
+    # ĐÃ FIX: Bổ sung 'Acquisition' để không bị gán nhầm thành 0
+    success_states = ['IPO', 'Acquisition', 'Success'] 
     
     def to_success_flag(value):
         value = str(value).strip()
@@ -44,11 +45,7 @@ def main():
     ]
 
     # Validate dataset columns
-    missing_cols = [] 
-    for col in numeric_cols + categorical_cols:
-        if col not in df.columns: 
-            missing_cols.append(col) 
-            
+    missing_cols = [col for col in numeric_cols + categorical_cols if col not in df.columns]
     if missing_cols:
         print(f"❌ Error: Your CSV is missing the following columns: {missing_cols}")
         return
@@ -57,40 +54,53 @@ def main():
     y = df[TARGET_COLUMN] 
 
     # =========================================================
-    # STEP 4: PREPROCESSING (IMPUTATION & ENCODING)
+    # STEP 4: DATA SPLITTING (CẮT DỮ LIỆU TRƯỚC ĐỂ CHỐNG LEAKAGE)
     # =========================================================
-    print("🧹 STEP 2: CLEANING AND ENCODING DATA...")
-    
-    # Handle missing numeric values with Median
-    num_imputer = SimpleImputer(strategy='median') 
-    X[numeric_cols] = num_imputer.fit_transform(X[numeric_cols])
-    
-    # Handle missing categorical values with a constant 'Unknown'
-    cat_imputer = SimpleImputer(strategy='constant', fill_value='Unknown')
-    X[categorical_cols] = cat_imputer.fit_transform(X[categorical_cols])
-
-    # One-Hot Encoding to avoid the Dummy Variable Trap
-    X = pd.get_dummies(X, columns=categorical_cols, drop_first=True)
-
-    # =========================================================
-    # STEP 5: DATA SPLITTING (TRAIN - VALIDATION - TEST)
-    # =========================================================
-    print("✂️ STEP 3: SPLITTING AND SCALING DATA...")
+    print("✂️ STEP 2: SPLITTING DATA (LEAKAGE-FREE ZONE)...")
     
     # Split 1: 70% Train, 30% Temp
     X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
     # Split 2: Divide Temp into 15% Validation, 15% Test
     X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
 
+    # Dùng .copy() để tránh lỗi SettingWithCopyWarning của Pandas
+    X_train = X_train.copy()
+    X_val = X_val.copy()
+    X_test = X_test.copy()
+
     print(f"   📦 Train Set:      {len(X_train)} samples")
     print(f"   📦 Validation Set: {len(X_val)} samples")
     print(f"   📦 Test Set:       {len(X_test)} samples")
+
+    # =========================================================
+    # STEP 5: PREPROCESSING (IMPUTATION, ENCODING & SCALING)
+    # =========================================================
+    print("🧹 STEP 3: CLEANING, ENCODING AND SCALING DATA...")
     
-    # Feature Scaling (Standardization)
+    # 1. Impute Numeric (Chỉ fit trên Train)
+    num_imputer = SimpleImputer(strategy='median') 
+    X_train[numeric_cols] = num_imputer.fit_transform(X_train[numeric_cols])
+    X_val[numeric_cols] = num_imputer.transform(X_val[numeric_cols])
+    X_test[numeric_cols] = num_imputer.transform(X_test[numeric_cols])
+    
+    # 2. Impute Categorical (Chỉ fit trên Train)
+    cat_imputer = SimpleImputer(strategy='constant', fill_value='Unknown')
+    X_train[categorical_cols] = cat_imputer.fit_transform(X_train[categorical_cols])
+    X_val[categorical_cols] = cat_imputer.transform(X_val[categorical_cols])
+    X_test[categorical_cols] = cat_imputer.transform(X_test[categorical_cols])
+
+    # 3. One-Hot Encoding
+    X_train = pd.get_dummies(X_train, columns=categorical_cols, drop_first=True, dtype=int)
+    X_val = pd.get_dummies(X_val, columns=categorical_cols, drop_first=True, dtype=int)
+    X_test = pd.get_dummies(X_test, columns=categorical_cols, drop_first=True, dtype=int)
+
+    # Đảm bảo Train, Val, Test có số lượng cột dummy y hệt nhau (Align Columns)
+    X_val = X_val.reindex(columns=X_train.columns, fill_value=0)
+    X_test = X_test.reindex(columns=X_train.columns, fill_value=0)
+
+    # 4. Feature Scaling (Chỉ fit trên Train)
     scaler = StandardScaler() 
     X_train[numeric_cols] = scaler.fit_transform(X_train[numeric_cols])
-    
-    # IMPORTANT: Only transform Validation and Test sets to prevent Data Leakage
     X_val[numeric_cols] = scaler.transform(X_val[numeric_cols])
     X_test[numeric_cols] = scaler.transform(X_test[numeric_cols]) 
 
@@ -99,20 +109,20 @@ def main():
     # =========================================================
     print("⚙️ STEP 4: TRAINING LOGISTIC REGRESSION MODEL...")
     
-    model = LogisticRegression(max_iter=1000, random_state=42, class_weight='balanced')
+    # Đã bỏ class_weight='balanced' vì bài toán 2 nhãn của bạn đã khá cân bằng
+    model = LogisticRegression(max_iter=1000, random_state=42)
     model.fit(X_train, y_train)
 
     # =========================================================
     # STEP 7: EVALUATION & PREDICTION
     # =========================================================
-    
     # Evaluate on Validation Set
     y_pred_val = model.predict(X_val)
     acc_val = accuracy_score(y_val, y_pred_val)
 
     # Evaluate on Test Set
     y_pred_test = model.predict(X_test)
-    y_prob_test = model.predict_proba(X_test)[:, 1] # Probability of Success
+    y_prob_test = model.predict_proba(X_test)[:, 1] # Xác suất thành công
     acc_test = accuracy_score(y_test, y_pred_test)
 
     print("\n" + "="*60)
@@ -122,17 +132,8 @@ def main():
     print(f"🏆 Test Accuracy:       {acc_test * 100:.2f}%\n")
     
     print("📋 Detailed Metrics on Test Set:")
-    print(classification_report(y_test, y_pred_test))
+    print(classification_report(y_test, y_pred_test, target_names=['Failed (0)', 'Success (1)']))
 
-    print("\n" + "="*60)
-    print("🎯 DEMO: PREDICTED SUCCESS SCORE FOR TEST DATASET")
-    print("="*60)
-    
-    for i in range(min(50, len(y_test))):
-        actual_status = "Success (1)" if y_test.iloc[i] == 1 else "Failed (0)"
-        predicted_prob = y_prob_test[i] * 100
-        print(f"- Startup #{i+1:<2} | Actual: {actual_status:<12} | Predicted Probability: {predicted_prob:.2f}%")
-        
     # =========================================================
     # STEP 8: DATA VISUALIZATION
     # =========================================================
@@ -162,7 +163,7 @@ def main():
     plt.title('2. ROC Curve', fontweight='bold')
     plt.legend(loc="lower right")
 
-    # --- CHART 3: FEATURE IMPORTANCE ---
+    # --- CHART 3: FEATURE IMPORTANCE (ĐÃ FIX LỖI MÀU SẮC) ---
     plt.subplot(1, 3, 3)
     feature_names = X_train.columns
     coefficients = model.coef_[0]
@@ -172,19 +173,14 @@ def main():
     
     top_features = pd.concat([feat_imp_df.head(5), feat_imp_df.tail(5)])
     
-    palette = []
-    for x in top_features['Weight']:
-        if x < 0:
-            palette.append('red')
-        else:
-            palette.append('green')
+    # Tạo danh sách màu trực tiếp gán vào cột mới
+    top_features['Color'] = top_features['Weight'].apply(lambda x: 'green' if x > 0 else 'red')
 
     sns.barplot(
         x='Weight',
         y='Feature',
-        hue='Feature',
         data=top_features,
-        palette=palette,
+        palette=top_features['Color'].tolist(), # Truyền màu chuẩn xác
         legend=False
     )
     plt.title('3. Top Feature Weights', fontweight='bold')
