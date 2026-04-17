@@ -1,3 +1,4 @@
+from copyreg import pickle
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -6,8 +7,14 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_curve, auc
 from sklearn.impute import SimpleImputer
+import joblib
+
+# sklearn seaborn matplotlib joblib
 
 def main():
+    
+    RANDOM_SEED = 42
+    
     # LOAD DATA
     print("STEP 1: LOADING DATA...")
     try:
@@ -18,7 +25,7 @@ def main():
 
     # DATA PREPARATION
     print("STEP 2: PREPARING DATA (TRANSFORMING LABELS, DEFINING FEATURES)...")
-    success_states = ['IPO', 'Acquisition'] 
+    success_states = ['IPO', 'Acquisition']
     
     def to_success_flag(value):
         value = str(value).strip()
@@ -33,7 +40,7 @@ def main():
     #  Feature Matrix Definition 
     numeric_cols = [
         'funding_rounds', 'founder_experience_years', 'team_size', 
-        'market_size_billion', 'product_traction_users', 
+        'market_size_billion', 'product_traction_users',
         'burn_rate_million', 'revenue_million'
     ]
     
@@ -48,17 +55,17 @@ def main():
         return
     
     X = df[numeric_cols + categorical_cols].copy()
-    y = df[TARGET_COLUMN] 
+    y = df[TARGET_COLUMN]
 
     #  DATA SPLITTING 
     print("STEP 3: SPLITTING DATA INTO TRAIN, VALIDATION, AND TEST SETS...")
     
     # Split 1: 70% Train, 30% Temp
-    X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
+    X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=RANDOM_SEED)
     # Split 2: Divide Temp into 15% Validation, 15% Test
-    X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
+    X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=RANDOM_SEED)
 
-    X_train = X_train.copy()
+    X_train = X_train.copy() # RAM
     X_val = X_val.copy()
     X_test = X_test.copy()
 
@@ -81,7 +88,7 @@ def main():
     X_val[categorical_cols] = cat_imputer.transform(X_val[categorical_cols])
     X_test[categorical_cols] = cat_imputer.transform(X_test[categorical_cols])
 
-    # One-Hot Encoding
+    # One-Hot Encoding - Prenvent Dummy Variable Trap
     X_train = pd.get_dummies(X_train, columns=categorical_cols, drop_first=True, dtype=int)
     X_val = pd.get_dummies(X_val, columns=categorical_cols, drop_first=True, dtype=int)
     X_test = pd.get_dummies(X_test, columns=categorical_cols, drop_first=True, dtype=int)
@@ -98,7 +105,7 @@ def main():
     # STEP 5: MODEL TRAINING
     print("⚙️ STEP 5: TRAINING LOGISTIC REGRESSION MODEL...")
     
-    model = LogisticRegression(max_iter=1000, random_state=42)
+    model = LogisticRegression(max_iter=1000, random_state=RANDOM_SEED) # Classification
     model.fit(X_train, y_train)
 
     # MODEL EVALUATION
@@ -177,6 +184,24 @@ def main():
 
     plt.tight_layout()
     plt.show()
-
+    
+    print("\n💾 STEP 8: EXPORTING MODEL AND PREPROCESSING ARTIFACTS...")
+    # Export the model
+    export_bundle = {
+        'model': model,
+        'num_imputer': num_imputer,
+        'cat_imputer': cat_imputer,
+        'scaler': scaler,
+        'expected_columns': X_train.columns.tolist()
+    }
+    
+    export_path = 'startup_success_model.pkl'
+    try:
+        joblib.dump(export_bundle, export_path)
+        print(f"✅ Model bundle successfully saved to '{export_path}'")
+    except Exception as e:
+        print(f"❌ Error saving model: {e}")
+ 
+    
 if __name__ == "__main__":
     main()
