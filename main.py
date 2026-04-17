@@ -106,7 +106,7 @@ def evaluate_model(model, X_train, y_train, X_val, y_val, X_test, y_test):
 
 # ── Visualisation ─────────────────────────────────────────────────────────────
 
-def plot_confusion_matrix(ax, y_test, y_pred) -> None:
+def plot_confusion_matrix(ax, y_test, y_pred):
     cm = confusion_matrix(y_test, y_pred)
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", cbar=False, ax=ax,
                 xticklabels=["Predicted Fail", "Predicted Success"],
@@ -114,7 +114,7 @@ def plot_confusion_matrix(ax, y_test, y_pred) -> None:
     ax.set_title("1. Confusion Matrix (Test Set)", fontweight="bold")
 
 
-def plot_roc_curve(ax, y_test, y_prob) -> None:
+def plot_roc_curve(ax, y_test, y_prob):
     fpr, tpr, _ = roc_curve(y_test, y_prob)
     roc_auc     = auc(fpr, tpr)
     ax.plot(fpr, tpr, color="darkorange", lw=2, label=f"ROC Curve (AUC = {roc_auc:.2f})")
@@ -125,7 +125,7 @@ def plot_roc_curve(ax, y_test, y_prob) -> None:
     ax.legend(loc="lower right")
 
 
-def plot_feature_weights(ax, model, feature_names) -> None:
+def plot_feature_weights(ax, model, feature_names):
     df = (pd.DataFrame({"Feature": feature_names, "Weight": model.coef_[0]})
             .sort_values("Weight"))
     top    = pd.concat([df.head(5), df.tail(5)])
@@ -136,7 +136,7 @@ def plot_feature_weights(ax, model, feature_names) -> None:
     ax.set_ylabel("Feature")
 
 
-def plot_precision_recall(ax, y_test, y_prob) -> None:
+def plot_precision_recall(ax, y_test, y_prob):
     precision, recall, _ = precision_recall_curve(y_test, y_prob)
     ap = average_precision_score(y_test, y_prob)
     ax.plot(recall, precision, color="purple", lw=2, label=f"AP = {ap:.2f}")
@@ -145,7 +145,7 @@ def plot_precision_recall(ax, y_test, y_prob) -> None:
     ax.legend()
 
 
-def plot_accuracy_comparison(ax, accuracies: dict) -> None:
+def plot_accuracy_comparison(ax, accuracies: dict):
     ax.bar(accuracies.keys(), [v * 100 for v in accuracies.values()],
            color=["steelblue", "orange", "green"])
     ax.set_ylabel("Accuracy (%)")
@@ -153,7 +153,7 @@ def plot_accuracy_comparison(ax, accuracies: dict) -> None:
     ax.set_ylim(0, 100)
 
 
-def generate_plots(model, X_train, y_test, y_pred, y_prob, accuracies: dict) -> None:
+def generate_plots(model, X_train, y_test, y_pred, y_prob, accuracies: dict):
     fig, axes = plt.subplots(2, 3, figsize=(18, 10))
 
     plot_confusion_matrix(axes[0, 0], y_test, y_pred)
@@ -169,7 +169,7 @@ def generate_plots(model, X_train, y_test, y_pred, y_prob, accuracies: dict) -> 
 
 # ── Export ────────────────────────────────────────────────────────────────────
 
-def export_model(model, num_imputer, cat_imputer, scaler, expected_columns) -> None:
+def export_model(model, num_imputer, cat_imputer, scaler, expected_columns):
     bundle = {
         "model":            model,
         "num_imputer":      num_imputer,
